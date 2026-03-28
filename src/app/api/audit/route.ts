@@ -151,7 +151,6 @@ export async function POST(request: NextRequest) {
       const highRiskKeywords = ['换汇', 'JD', '拆单', '代收款', '洗钱', '诈骗', '黑钱', '帮信', '非法', '缅甸', '柬埔寨'];
       const medRiskKeywords = ['跨境', '大额', '转账', '频繁', '异常', '可疑'];
       
-      const inputLower = input.toLowerCase();
       const highRiskMatches = highRiskKeywords.filter(k => input.includes(k));
       const medRiskMatches = medRiskKeywords.filter(k => input.includes(k));
       
