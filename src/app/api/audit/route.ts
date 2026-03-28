@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 
 const COZE_API_BASE = 'https://api.coze.cn';
 const USE_MOCK_DATA = process.env.USE_MOCK_DATA === 'true';
-const USE_LOCAL_WORKFLOW = process.env.USE_LOCAL_WORKFLOW === 'true';
+// 默认使用本地工作流，除非明确设置为 false
+const USE_LOCAL_WORKFLOW = process.env.USE_LOCAL_WORKFLOW !== 'false';
 
 function getHeaders() {
   return {
