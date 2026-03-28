@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { executeWorkflow } from '@/lib/workflowEngine';
 
 // 强制动态渲染，防止 Vercel 缓存
 export const dynamic = 'force-dynamic';
@@ -6,6 +7,7 @@ export const runtime = 'nodejs';
 
 const COZE_API_BASE = 'https://api.coze.cn';
 const USE_MOCK_DATA = process.env.USE_MOCK_DATA === 'true';
+const USE_LOCAL_WORKFLOW = process.env.USE_LOCAL_WORKFLOW === 'true';
 
 function getHeaders() {
   return {
@@ -140,6 +142,20 @@ export async function POST(request: NextRequest) {
 
     if (!input || typeof input !== 'string') {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    }
+
+    // 🎯 本地工作流模式（推荐）
+    if (USE_LOCAL_WORKFLOW) {
+      console.log('🔧 使用本地工作流引擎');
+      console.log('📥 收到输入:', input.substring(0, 100));
+      
+      const result = await executeWorkflow(input);
+      
+      console.log('✅ 本地工作流执行完成');
+      console.log('📊 风险评分:', result.score);
+      console.log('📋 决策:', result.decision);
+      
+      return NextResponse.json(result);
     }
 
     // 🎯 模拟数据模式（临时解决方案）
