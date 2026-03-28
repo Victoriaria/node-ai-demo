@@ -44,8 +44,8 @@ const FRAUD_CASES: FraudCase[] = [
       '向第三方私人账户汇款',
       '利用刷单逻辑诱导支付'
     ],
-    baseScore: 85,
-    decision: 'WARN',
+    baseScore: 92,
+    decision: 'HALT',
     description: '利用众包平台（如JD）发布虚假高佣金任务，诱导用户进行测试汇款，实为电信诈骗。'
   },
   {

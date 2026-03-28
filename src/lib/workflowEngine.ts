@@ -136,6 +136,13 @@ export class WorkflowEngine {
     if (matchedCases.length > 0) {
       const maxCaseScore = Math.max(...matchedCases.map(c => c.baseScore));
       baseScore = Math.max(baseScore, maxCaseScore);
+      
+      // 如果匹配到 HALT 级别的案例，直接提升到 90+
+      const hasHaltCase = matchedCases.some(c => c.decision === 'HALT');
+      if (hasHaltCase && baseScore < 90) {
+        baseScore = Math.max(baseScore, 92);
+        this.context.thoughtChain.push('🚨 匹配到熔断级案例，风险评分提升');
+      }
     }
 
     // 特殊规则：跨境+大额+转账/汇款 组合提升风险
