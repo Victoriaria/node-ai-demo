@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// 强制动态渲染，防止 Vercel 缓存
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const COZE_API_BASE = 'https://api.coze.cn';
 const USE_MOCK_DATA = process.env.USE_MOCK_DATA === 'true';
 
@@ -7,6 +11,7 @@ function getHeaders() {
   return {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${process.env.COZE_API_KEY}`,
+    'Accept': 'text/event-stream',
   };
 }
 
@@ -299,10 +304,12 @@ ${highRiskMatches.map((k, i) => `${i + 1}. ${k}：典型的电信诈骗/洗钱�
     }
 
     console.log('📥 收到输入:', input.substring(0, 100));
-    console.log('🔄 调用 Bot Chat API, Bot ID:', botId);
+    console.log('🔄 调用 Coze Bot Chat API');
+    console.log('🤖 Bot ID:', botId);
+    console.log('🔑 API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET');
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 增加到 3 分钟
 
     const res = await fetch(`${COZE_API_BASE}/v3/chat`, {
       method: 'POST',
@@ -311,88 +318,146 @@ ${highRiskMatches.map((k, i) => `${i + 1}. ${k}：典型的电信诈骗/洗钱�
       body: JSON.stringify({
         bot_id: botId,
         user_id: 'node-ai-user',
-        additional_messages: [{ role: 'user', content: input, content_type: 'text' }],
+        additional_messages: [{ 
+          role: 'user', 
+          content: input, 
+          content_type: 'text' 
+        }],
         stream: true,
       }),
     });
 
     clearTimeout(timeoutId);
 
+    console.log('📡 Coze API 响应状态:', res.status);
+    console.log('📡 响应头:', Object.fromEntries(res.headers.entries()));
+
     if (!res.ok) {
       const errText = await res.text();
-      console.error('❌ Chat请求失败:', res.status, errText);
+      console.error('❌ Coze API 请求失败');
+      console.error('❌ 状态码:', res.status);
+      console.error('❌ 错误信息:', errText);
+      
       return NextResponse.json({
         score: null, mode: 'AUDIT', decision: 'WARN',
-        reason: `Coze API请求失败 (${res.status})`,
-        thought_chain: ['API请求失败'],
-        ai_response: '审计服务暂时不可用，请稍后再试'
+        reason: `Coze API 请求失败 (${res.status})`,
+        thought_chain: [
+          'API 请求失败',
+          `状态码: ${res.status}`,
+          '请检查 COZE_API_KEY 和 COZE_BOT_ID 是否正确'
+        ],
+        ai_response: `审计服务暂时不可用，请稍后再试。错误: ${res.status}`
       });
     }
 
     // 读取 SSE 流
     const reader = res.body?.getReader();
-    if (!reader) throw new Error('无法读取响应流');
+    if (!reader) {
+      console.error('❌ 无法获取响应流 reader');
+      throw new Error('无法读取响应流');
+    }
 
+    console.log('📖 开始读取 SSE 流...');
     const decoder = new TextDecoder();
     let fullAnswer = '';
     let buffer = '';
     let currentEvent = '';
+    let messageCount = 0;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) { currentEvent = ''; continue; }
-
-        if (trimmed.startsWith('event:')) {
-          currentEvent = trimmed.slice(6).trim();
-          continue;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          console.log('✅ SSE 流读取完成');
+          break;
         }
 
-        if (trimmed.startsWith('data:')) {
-          const jsonStr = trimmed.slice(5).trim();
-          if (!jsonStr || jsonStr === '[DONE]') continue;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
 
-          try {
-            const evt = JSON.parse(jsonStr);
-            const evtType: string = currentEvent || evt.event || '';
-            console.log('📡 SSE RAW:', JSON.stringify(evt).substring(0, 300));
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) { 
+            currentEvent = ''; 
+            continue; 
+          }
 
-            const msgData = evt.message ?? evt.data ?? evt;
-            const role: string = msgData.role ?? '';
-            const type: string = msgData.type ?? '';
-            const content: string = msgData.content ?? '';
+          if (trimmed.startsWith('event:')) {
+            currentEvent = trimmed.slice(6).trim();
+            console.log('📌 事件类型:', currentEvent);
+            continue;
+          }
 
-            if (role === 'assistant' && type === 'answer' && content) {
-              if (evtType === 'conversation.message.delta') {
-                fullAnswer += content;
-              } else if (evtType === 'conversation.message.completed') {
-                fullAnswer = content;
-                console.log('✅ completed 事件，answer长度:', fullAnswer.length);
-              } else if (!evtType) {
-                fullAnswer += content;
-              }
+          if (trimmed.startsWith('data:')) {
+            const jsonStr = trimmed.slice(5).trim();
+            if (!jsonStr || jsonStr === '[DONE]') {
+              console.log('🏁 收到 [DONE] 标记');
+              continue;
             }
-          } catch { /* 忽略非JSON行 */ }
+
+            try {
+              const evt = JSON.parse(jsonStr);
+              messageCount++;
+              
+              if (messageCount <= 3) {
+                console.log(`📡 SSE 消息 #${messageCount}:`, JSON.stringify(evt).substring(0, 200));
+              }
+
+              const evtType: string = currentEvent || evt.event || '';
+              const msgData = evt.message ?? evt.data ?? evt;
+              const role: string = msgData.role ?? '';
+              const type: string = msgData.type ?? '';
+              const content: string = msgData.content ?? '';
+
+              if (role === 'assistant' && type === 'answer' && content) {
+                if (evtType === 'conversation.message.delta') {
+                  fullAnswer += content;
+                  if (fullAnswer.length % 100 === 0) {
+                    console.log(`📝 累计收集 ${fullAnswer.length} 字符...`);
+                  }
+                } else if (evtType === 'conversation.message.completed') {
+                  fullAnswer = content;
+                  console.log('✅ 收到 completed 事件，answer 长度:', fullAnswer.length);
+                } else if (!evtType) {
+                  fullAnswer += content;
+                }
+              }
+            } catch (parseError) {
+              console.warn('⚠️ JSON 解析失败:', jsonStr.substring(0, 100));
+            }
+          }
         }
       }
+    } catch (streamError) {
+      console.error('❌ SSE 流读取错误:', streamError);
+      throw streamError;
     }
 
-    console.log('💬 流式收集完成，answer长度:', fullAnswer.length);
-    console.log('💬 AI回复前300字:', fullAnswer.substring(0, 300));
+    console.log('💬 流式收集完成');
+    console.log('💬 总消息数:', messageCount);
+    console.log('💬 Answer 长度:', fullAnswer.length);
+    console.log('💬 Answer 前 300 字:', fullAnswer.substring(0, 300));
 
-    if (!fullAnswer) {
+    if (!fullAnswer || fullAnswer.length === 0) {
+      console.error('❌ SSE 流响应为空');
+      console.error('❌ 可能的原因:');
+      console.error('   1. COZE_BOT_ID 配置错误');
+      console.error('   2. Bot 没有返回内容');
+      console.error('   3. Bot 配置问题');
+      
       return NextResponse.json({
-        score: null, mode: 'AUDIT', decision: 'WARN',
-        reason: '未获取到AI回复内容，请检查Bot ID是否正确',
-        thought_chain: ['SSE流响应为空', '请确认COZE_BOT_ID配置正确'],
-        ai_response: '审计完成，但未获取到回复内容'
+        score: null, 
+        mode: 'AUDIT', 
+        decision: 'WARN',
+        reason: '未获取到 AI 回复内容',
+        thought_chain: [
+          'SSE 流响应为空',
+          `收到 ${messageCount} 条消息，但无有效内容`,
+          '请确认 COZE_BOT_ID 配置正确',
+          '请检查 Coze Bot 是否正常工作'
+        ],
+        ai_response: '审计完成，但未获取到回复内容。请检查 Coze Bot 配置。'
       });
     }
 
