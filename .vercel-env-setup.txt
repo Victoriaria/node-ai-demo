@@ -1,0 +1,22 @@
+# Vercel 环境变量配置
+
+请在 Vercel Dashboard 中添加以下环境变量：
+
+1. COZE_API_KEY
+   值: pat_IS7gZeBKFHEETYYT5bqPkxSHHUti7PnZPcUu47wjlPxuF69YxNZkrV4HrUTN6gBR
+
+2. COZE_BOT_ID
+   值: 7621043639807967270
+
+3. USE_MOCK_DATA
+   值: true
+
+配置步骤：
+1. 访问: https://vercel.com/gaomin13617777132-5709s-projects/node-ai/settings/environment-variables
+2. 添加上述三个环境变量
+3. 点击 "Redeploy" 重新部署
+
+或者使用命令行：
+vercel env add COZE_API_KEY production
+vercel env add COZE_BOT_ID production
+vercel env add USE_MOCK_DATA production

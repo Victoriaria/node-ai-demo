@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 225 40% 3%;
+    --foreground: 220 100% 98%;
+    --card: 225 40% 5%;
+    --card-foreground: 220 100% 98%;
+    --popover: 225 40% 5%;
+    --popover-foreground: 220 100% 98%;
+    --primary: 215 100% 50%;
+    --primary-foreground: 220 100% 98%;
+    --secondary: 225 30% 15%;
+    --secondary-foreground: 220 100% 98%;
+    --muted: 225 30% 10%;
+    --muted-foreground: 220 60% 70%;
+    --accent: 225 40% 20%;
+    --accent-foreground: 220 100% 98%;
+    --destructive: 0 80% 50%;
+    --destructive-foreground: 220 100% 98%;
+    --border: 225 30% 20%;
+    --input: 225 30% 20%;
+    --ring: 215 100% 50%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-shadow-neon {
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+  }
+  
+  .text-shadow-alert {
+    text-shadow: 0 0 10px rgba(255, 77, 77, 0.5);
+  }
+  
+  .bg-grid {
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  .border-glow-neon {
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+  }
+  
+  .border-glow-alert {
+    box-shadow: 0 0 10px rgba(255, 77, 77, 0.5);
+  }
+  
+  .animate-flicker {
+    animation: flicker 2s infinite;
+  }
+  
+  @keyframes flicker {
+    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+      opacity: 1;
+    }
+    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+      opacity: 0.5;
+    }
+  }
+}
+
+/* 金融终端风格滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
